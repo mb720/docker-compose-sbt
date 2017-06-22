@@ -27,9 +27,6 @@ ARG dockerVersion=17.05.0-ce
 
 RUN curl -L "https://download.docker.com/linux/static/${docker_channel}/x86_64/docker-${dockerVersion}.tgz" | tar xz --strip-components 1 --directory /usr/local/bin/
 
-# Remove the dependencies installed with APK safe for bash, which SBT needs
-RUN apk del curl py-pip
-
 # Make Docker in Docker work
 RUN apk add --no-cache \
 		btrfs-progs \
@@ -65,6 +62,9 @@ RUN ["docker", "-v"]
 RUN ["dockerd", "-v"]
 RUN ["sbt", "sbtVersion"]
 
+
+# Remove py-pip that we used to install Docker-Compose. We can't remove bash since SBT needs it. Also, Docker Compose requires curl
+RUN apk del py-pip
 
 ENTRYPOINT ["dockerd-entrypoint.sh"]
 CMD []
