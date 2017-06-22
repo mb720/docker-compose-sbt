@@ -1,7 +1,6 @@
 # Our base image: https://hub.docker.com/_/openjdk/
 # The JRE is used to start SBT which will download compilers, plugins, and their dependencies
-#FROM openjdk:8u131-jre-alpine
-FROM alpine:3.5
+FROM openjdk:8u131-jre-alpine
 
 MAINTAINER Matthias Braun <matthias@bullbytes.com>
 
@@ -30,6 +29,7 @@ RUN curl -L "https://download.docker.com/linux/static/${docker_channel}/x86_64/d
 
 # Remove the dependencies installed with APK safe for bash, which SBT needs
 RUN apk del curl py-pip
+
 # Make Docker in Docker work
 RUN apk add --no-cache \
 		btrfs-progs \
@@ -63,7 +63,7 @@ EXPOSE 2375
 RUN ["docker-compose", "version"]
 RUN ["docker", "-v"]
 RUN ["dockerd", "-v"]
-#RUN ["sbt", "sbtVersion"]
+RUN ["sbt", "sbtVersion"]
 
 
 ENTRYPOINT ["dockerd-entrypoint.sh"]
