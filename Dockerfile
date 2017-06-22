@@ -1,6 +1,7 @@
 # Our base image: https://hub.docker.com/_/openjdk/
 # The JRE is used to start SBT which will download compilers, plugins, and their dependencies
-FROM openjdk:8u131-jre-alpine
+#FROM openjdk:8u131-jre-alpine
+FROM alpine:3.5
 
 MAINTAINER Matthias Braun <matthias@bullbytes.com>
 
@@ -16,6 +17,10 @@ ARG sbtArchiveUrl=https://github.com/sbt/sbt/releases/download/v$sbtVersion/sbt-
 
 RUN mkdir -p "$sbtHome" && curl -L $sbtArchiveUrl | tar xz --strip-components 1 --directory $sbtHome
 
+# Install Docker Compose using pip which also installs the required glibc.
+# To install without pip, see https://github.com/wernight/docker-compose or https://github.com/ncrmro/docker-and-compose
+RUN pip install docker-compose
+
 # Install Docker
 ARG docker_channel=edge
 # See this for the most recent version: https://github.com/moby/moby/blob/master/CHANGELOG.md
@@ -23,15 +28,43 @@ ARG dockerVersion=17.05.0-ce
 
 RUN curl -L "https://download.docker.com/linux/static/${docker_channel}/x86_64/docker-${dockerVersion}.tgz" | tar xz --strip-components 1 --directory /usr/local/bin/
 
-# Install Docker Compose using pip which also installs the required glibc.
-# To install without pip, see https://github.com/wernight/docker-compose or https://github.com/ncrmro/docker-and-compose
-RUN pip install docker-compose
+# Remove the dependencies installed with APK safe for bash, which SBT needs
+RUN apk del curl py-pip
+# Make Docker in Docker work
+RUN apk add --no-cache \
+		btrfs-progs \
+		e2fsprogs \
+		e2fsprogs-extra \
+		iptables \
+		xfsprogs \
+		xz
+
+# set up subuid/subgid so that "--userns-remap=default" works out-of-the-box
+RUN set -x \
+	&& addgroup -S dockremap \
+	&& adduser -S -G dockremap dockremap \
+	&& echo 'dockremap:165536:65536' >> /etc/subuid \
+	&& echo 'dockremap:165536:65536' >> /etc/subgid
+
+ENV DIND_COMMIT 3b5fac462d21ca164b3778647420016315289034
+
+RUN set -ex; \
+	apk add --no-cache --virtual .fetch-deps libressl; \
+	wget -O /usr/local/bin/dind "https://raw.githubusercontent.com/docker/docker/${DIND_COMMIT}/hack/dind"; \
+	chmod +x /usr/local/bin/dind; \
+	apk del .fetch-deps
+
+COPY dockerd-entrypoint.sh /usr/local/bin/
+
+VOLUME /var/lib/docker
+EXPOSE 2375
 
 # Some smoke testing
 RUN ["docker-compose", "version"]
 RUN ["docker", "-v"]
 RUN ["dockerd", "-v"]
-RUN ["sbt", "sbtVersion"]
+#RUN ["sbt", "sbtVersion"]
 
-# Remove the dependencies installed with APK safe for bash, which SBT needs
-RUN apk del curl py-pip
+
+ENTRYPOINT ["dockerd-entrypoint.sh"]
+CMD []
