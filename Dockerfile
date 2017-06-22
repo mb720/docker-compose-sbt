@@ -52,6 +52,8 @@ RUN set -ex; \
 	apk del .fetch-deps
 
 COPY dockerd-entrypoint.sh /usr/local/bin/
+# Make sure the entrypoint script is executable
+RUN chmod 755 /usr/local/bin/dockerd-entrypoint.sh 
 
 VOLUME /var/lib/docker
 EXPOSE 2375
